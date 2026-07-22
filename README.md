@@ -1,5 +1,5 @@
 
-# MOQ-SNC-THERMO-OPTIMIZATION
+# MUQ-SNC-THERMO-OPTIMIZATION
 
 A Novel Temperature-Dependent Optimization framework for Thermodynamic Parameter of Chemical Kinetic Model
 
