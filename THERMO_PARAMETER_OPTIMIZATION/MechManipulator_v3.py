@@ -241,62 +241,68 @@ class Manipulator:
 		return rxn_type
 	
 	def HeatCapacityPerturbation(self,index,species,zeta,mechanism):
+
 		convertor = np.asarray(self.unsrt[species].selection)
 
-		species_object = self.unsrt[species]# To search the reaction from Yaml dictionary
+		species_object = self.unsrt[species]
 		species_Data = self.unsrt[species]
-		#cov = self.unsrt[species].cholskyDeCorrelateMat #The L matrix storing the uncertainty data
 		cov = species_object.cov
 		temprature_range = species_object.temp_limit
-		#print(species, temprature_range)
-		#print(mechanism["species"][index])
 		thermo_details = mechanism["species"][index]["thermo"]
-		
-		if (temprature_range) == "Low" :
+
+		if (temprature_range) == "Low":
 
 			c0 = self.unsrt[species].nominal
 			p0 = self.unsrt[species].nominal[0:5]
 
 			unsrt_perturbation = np.asarray(cov.dot(zeta)).flatten()
-			p = p0+convertor*unsrt_perturbation
+			p = p0 + convertor*unsrt_perturbation
 
+			T_ref = 298.15
 			T_mid = self.unsrt[species].common_temp
 
-			H_nom, S_nom = self.get_nominal_HS_at_T(
-				T_mid,
-				c0
-			)
+			# Nominal enthalpy and entropy at the reference temperature
+			H_nom, S_nom = self.get_nominal_HS_at_T(T_ref, c0)
 
-			delta_H = np.random.uniform(-0.010,0.010)
+			# Perturbation (replace later with actual uncertainty limits)
+			delta_H = np.random.uniform(-0.020,0.020)
 			delta_S = np.random.uniform(-0.010,0.010)
 
 			H_target = H_nom*(1.0 + delta_H)
 			S_target = S_nom*(1.0 + delta_S)
 
+			# Recover a6 and a7 using the reference temperature
 			a6, a7 = self.solve_a6_a7_from_target_HS(
-				T_mid,
+				T_ref,
 				p,
 				H_target,
 				S_target
 			)
 
 			thermo_details["data"][0] = [
-				p[0],p[1],p[2],p[3],p[4],
-				a6,a7
+				p[0], p[1], p[2], p[3], p[4],
+				a6, a7
 			]
 
 			mechanism["species"][index]["thermo"] = deepcopy(thermo_details)
 
-			if not hasattr(self,"HS_targets"):
+			# Propagate to T_mid for continuity
+			H_mid, S_mid = self.get_nominal_HS_at_T(
+				T_mid,
+				[p[0], p[1], p[2], p[3], p[4], a6, a7]
+			)
+
+			if not hasattr(self, "HS_targets"):
 				self.HS_targets = {}
 
 			species_name = species.split(":")[0]
 
+			# Store propagated values at T_mid for the high-temperature fit
 			self.HS_targets[species_name] = (
-				H_target,
-				S_target
+				H_mid,
+				S_mid
 			)
-		
+
 		else:
 
 			T_mid = self.unsrt[species].common_temp
@@ -306,9 +312,9 @@ class Manipulator:
 			unsrt_perturbation = np.asarray(cov.dot(zeta)).flatten()
 			p = p0_high + convertor*unsrt_perturbation
 
-			#H_target, S_target = self.HS_targets[species]
 			species_name = species.split(":")[0]
 
+			# Target values propagated from the low-temperature polynomial
 			H_target, S_target = self.HS_targets[species_name]
 
 			b6, b7 = self.solve_a6_a7_from_target_HS(
@@ -319,12 +325,12 @@ class Manipulator:
 			)
 
 			thermo_details["data"][1] = [
-				p[0],p[1],p[2],p[3],p[4],
-				b6,b7
+				p[0], p[1], p[2], p[3], p[4],
+				b6, b7
 			]
 
-			mechanism["species"][index]["thermo"] = deepcopy(thermo_details)	
-	
+			mechanism["species"][index]["thermo"] = deepcopy(thermo_details)
+		
 	def ElementaryPerturbation(self, index, beta, mechanism):
 		perturbation_factor = beta
 		reaction_details = mechanism["reactions"][index]["rate-constant"]
@@ -452,4 +458,3 @@ class Manipulator:
 			return new_mechanism,perturb
 		else:
 			raise AssertionError(f"Invalid flag: {self.flag}!!\n\t-valid flag types ['thermo','reaction']\n")
-
