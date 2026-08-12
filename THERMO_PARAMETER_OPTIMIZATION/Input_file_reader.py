@@ -889,4 +889,3 @@ class Curvefit():
 		
 		return fca,fcta,fcb,fctb,fcc,fctc
 		
-
