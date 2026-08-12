@@ -44,7 +44,7 @@ import Uncertainty as uncertainty
 from sample_generator  import sample_plot_all_species as sample_plot
 from MechanismParser import Parser
 from MechManipulator_v3 import Manipulator
-import ga_optimizer_module as ga_mod
+import ga_optimizer_module_V2 as ga_mod
 ### KEY WORDS #######
 optType = "optimization_type"
 targets = "targets"
@@ -402,8 +402,8 @@ elif analysis_type == "thermo":
         if design == "A-facto":
             sim = int(A_fact_samples)*n_
         elif design == "Tcube":
-            #sim = int(0.1*n_)	# test case
-            sim = 5*n_
+            sim = 3*n	# test case
+            #sim = 5*n_
         else:
             sim = 5*n_    
             #sim = int(0.1*n_)
@@ -751,12 +751,13 @@ best_parameters, minimum_cost = ga_mod.run_optimization_process(
     target_species_list=active_species,
     full_experimental_values=exp_vals,          
     rejected_cases=rejected_prs_cases,          
-    groups=groups,                       
+    groups=groups,                        
+    xml_uncertainty_file= unsrt_location,  
     baseline_group_rms=None, 
     total_case_count=len(exp_vals),          
-    ngen=600,         
-    pop_size=500,     
-    n_workers=22,     
+    ngen=600,          
+    pop_size=500,      
+    n_workers=22,      
     seed=42,          
     resume_from_dir=None,
     design_matrix_path=design_matrix_csv_file  
