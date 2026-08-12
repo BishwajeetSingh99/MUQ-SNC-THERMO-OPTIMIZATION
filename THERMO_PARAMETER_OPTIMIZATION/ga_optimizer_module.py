@@ -3,34 +3,54 @@ import numpy as np
 import yaml
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 R = 8.314
 REFERENCE_TEMPERATURE = 298.15
 
-# ==============================================================================
-# ADJUST SPECIES-SPECIFIC H AND S UNCERTAINTY DICTIONARY (AT 298.15 K REFERENCE)
-# ADJUST SPECIES-SPECIFIC H AND S UNCERTAINTY DICTIONARIES (AT 298.15 K REFERENCE)
-# ==============================================================================
-# kindly specify the species name like "NC3H7" in place of species_1..species_n along with their actual uncertainty at T_ref
-H_SPECIES_UNCERTAINTY = {
-    "species_1": 0.022,
-    "species_2": 0.058,
-    "species_3": 0.000,
-    "species_4": 0.094,
-    "species_5": 0.100,
-}
-
-S_SPECIES_UNCERTAINTY = {
-    "species_1": 0.10,
-    "species_2": 0.10,
-    "species_3": 0.00,
-    "species_4": 0.10,
-    "species_5": 0.10,
-}
-
 DEFAULT_H_ABS_BOUND = 0.10
 DEFAULT_S_ABS_BOUND = 0.10
+
+# ==============================================================================
+# XML UNCERTAINTY PARSER
+# ==============================================================================
+def load_uncertainties_from_xml(xml_file_path):
+    if not os.path.exists(xml_file_path):
+        raise FileNotFoundError(f"XML uncertainty file not found at: {xml_file_path}")
+
+    h_uncertainties = {}
+    s_uncertainties = {}
+
+    tree = ET.parse(xml_file_path)
+    root = tree.getroot()
+
+    for thermo_elem in root.findall("thermo"):
+        species_name = thermo_elem.get("species")
+        if not species_name:
+            continue
+
+        sp_key = species_name.strip().lower()
+
+        # Extract Enthalpy (h) uncertainty value
+        unsrt_h_elem = thermo_elem.find("unsrt_h")
+        if unsrt_h_elem is not None and unsrt_h_elem.text:
+            try:
+                val_h = float(unsrt_h_elem.text.split(",")[0].strip())
+                h_uncertainties[sp_key] = val_h
+            except ValueError:
+                pass
+
+        # Extract Entropy (e) uncertainty value
+        unsrt_e_elem = thermo_elem.find("unsrt_e")
+        if unsrt_e_elem is not None and unsrt_e_elem.text:
+            try:
+                val_s = float(unsrt_e_elem.text.split(",")[0].strip())
+                s_uncertainties[sp_key] = val_s
+            except ValueError:
+                pass
+
+    return h_uncertainties, s_uncertainties
 
 # =========================================================
 # PRS BASIS EXPANSION
@@ -175,7 +195,12 @@ def load_thermo_data_from_text(thermo_data_file, species_list):
 # ==============================================================================
 # WORKER INDIVIDUAL EVALUATION CORE WITH CONSTRAINTS
 # ==============================================================================
-def worker_evaluate(zeta_vector, species_info, prs_folder, valid_cases, case_to_pred_idx, full_experimental_values, groups, baseline_group_rms=None):
+def worker_evaluate(zeta_vector, species_info, prs_folder, valid_cases, case_to_pred_idx, full_experimental_values, groups, h_uncertainties=None, s_uncertainties=None, baseline_group_rms=None):
+    if h_uncertainties is None:
+        h_uncertainties = {}
+    if s_uncertainties is None:
+        s_uncertainties = {}
+
     coeff_list = []
     idx = 0
     T_REF = REFERENCE_TEMPERATURE
@@ -191,15 +216,15 @@ def worker_evaluate(zeta_vector, species_info, prs_folder, valid_cases, case_to_
         z_S_init    = zeta_vector[idx+11]
         idx += 12
 
-        h_delta = H_SPECIES_UNCERTAINTY.get(sp_name, DEFAULT_H_ABS_BOUND)
-        s_delta = S_SPECIES_UNCERTAINTY.get(sp_name, DEFAULT_S_ABS_BOUND)
+        sp_key = sp_name.strip().lower()
+        h_delta = h_uncertainties.get(sp_key, DEFAULT_H_ABS_BOUND)
+        s_delta = s_uncertainties.get(sp_key, DEFAULT_S_ABS_BOUND)
 
         while attempt < max_attempts:
             attempt += 1
             if attempt == 1:
                 z_low, z_high, z_H, z_S = z_low_init.copy(), z_high_init.copy(), z_H_init, z_S_init
             else:
-                
                 z_low  = np.random.uniform(-2.0, 2.0, 5)
                 z_high = np.random.uniform(-2.0, 2.0, 5)
                 z_H, z_S = np.random.uniform(-1.0, 1.0), np.random.uniform(-1.0, 1.0)
@@ -324,6 +349,7 @@ def run_optimization_process(
     full_experimental_values,
     rejected_cases,
     groups,
+    xml_uncertainty_file=None,
     baseline_group_rms=None,
     total_case_count=79,
     ngen=600,           
@@ -334,6 +360,14 @@ def run_optimization_process(
     design_matrix_path=None
 ):
     np.random.seed(seed)
+
+    # Load uncertainties from XML if path is provided
+    h_uncertainties, s_uncertainties = {}, {}
+    if xml_uncertainty_file and os.path.exists(xml_uncertainty_file):
+        print(f"📄 Parsing species uncertainties from XML: {xml_uncertainty_file}")
+        h_uncertainties, s_uncertainties = load_uncertainties_from_xml(xml_uncertainty_file)
+    else:
+        print("⚠️ No valid XML uncertainty file provided/found. Falling back to default limits.")
 
     if resume_from_dir and os.path.exists(resume_from_dir):
         run_dir = resume_from_dir
@@ -391,7 +425,8 @@ def run_optimization_process(
         print("🎯 Evaluating reference nominal baseline...")
         _, _, baseline_group_rms, _ = worker_evaluate(
             np.zeros(n_dim), species_info, prs_coefficients_folder, 
-            valid_cases, case_to_pred_idx, full_experimental_values, groups, None
+            valid_cases, case_to_pred_idx, full_experimental_values, groups,
+            h_uncertainties, s_uncertainties, None
         )
         with open(baseline_file, "w") as f_base:
             f_base.write(",".join(map(str, baseline_group_rms)) + "\n")
@@ -433,7 +468,8 @@ def run_optimization_process(
             for i, ind in enumerate(population):
                 f = executor.submit(
                     worker_evaluate, ind, species_info, prs_coefficients_folder,
-                    valid_cases, case_to_pred_idx, full_experimental_values, groups, baseline_group_rms
+                    valid_cases, case_to_pred_idx, full_experimental_values, groups,
+                    h_uncertainties, s_uncertainties, baseline_group_rms
                 )
                 future_to_index[f] = i
 
