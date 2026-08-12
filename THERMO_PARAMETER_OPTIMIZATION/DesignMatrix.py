@@ -653,37 +653,37 @@ class DesignMatrix(object):
 				
 		return Class_thermo_Curve_dict,Generator_dict
 		
-	def get_thermo_Hybrid_HigherOrder_LinearCurves(self,n_a):
+	def get_thermo_Hybrid_HigherOrder_LinearCurves(self, n_a):
 		"""
-			This defination generates n_a numbers of class-L_H type thermo curves 
+			This definition generates n_a numbers of class-H_L type thermo curves 
+			- Part 1 (Low T): Higher-Order Curve
+			- Part 2 (High T): Linear Curve
 		"""
 		Class_thermo_Curve_dict = {}
 		Generator_dict = {}
-		for index,species in enumerate(self.unsrt):
-			#print(species)
+		for index, species in enumerate(self.unsrt):
 			species_name = self.unsrt[species].species
 			generator = []
 			T = self.unsrt[species].common_temp
-			Theta = np.array([T/T,T,T**2,T**3,T**4])
-			if self.unsrt[species].a1_HL is None or np.all(self.unsrt[species].a1_HL)==None:
+			Theta = np.array([T/T, T, T**2, T**3, T**4])
+			
+			# PART 1: LOW TEMPERATURE (HIGHER-ORDER)
+			if self.unsrt[species].a1_HL is None or np.all(self.unsrt[species].a1_HL) == None:
 				a1_ = []
 				a2_ = []
 				a3_ = []
 				Cp_T_mid = []
 				for i in range(n_a):
-					a1 = np.random.uniform(-1,1,(1,1))[0]
-					a2 = np.random.uniform(a1,1,(1,1))[0]
-					#a1 = -0.7
-					#a2 = 0.1
-					P_2 = self.unsrt[species].NominalParams + a2*np.asarray(np.dot(self.unsrt[species].cov,self.unsrt[species].zeta_max.x)).flatten()
+					a1 = np.random.uniform(-1, 1, (1, 1))[0]
+					a2 = np.random.uniform(a1, 1, (1, 1))[0]
+					P_2 = self.unsrt[species].NominalParams + a2 * np.asarray(np.dot(self.unsrt[species].cov, self.unsrt[species].zeta_max.x)).flatten()
 					Cp_T_mid.append(Theta.dot(P_2))
-					#print(a2)
-					#print(Theta.dot(P_2))
-					a3 = np.random.uniform(a2,1,(1,1))[0]
+					a3 = np.random.uniform(a2, 1, (1, 1))[0]
 					a1_.append(a1)
 					a2_.append(a2)
 					a3_.append(a3)
-					generator.append([[a1],[a2],a3])
+					generator.append([[a1], [a2], a3])
+				
 				for spec in self.unsrt:
 					if self.unsrt[spec].species == species_name:
 						self.unsrt[spec].a1_HL = a1_
@@ -692,60 +692,57 @@ class DesignMatrix(object):
 						self.unsrt[spec].Cp_T_mid_HL = Cp_T_mid
 					else:
 						continue
-				generator = np.asarray(generator,dtype="object")
+				
+				generator = np.asarray(generator, dtype="object")
 				data = self.unsrt[species].data
 				data["generators_thermo"] = generator
+				
 				callWorkForce = Worker(self.allowed_count)	
-				Class_thermo_curves,generator_thermo = callWorkForce.do_unsrt_thermoHigherOrder(data,len(generator))
+				# Pass 1: Low-T gets Higher Order
+				Class_thermo_curves, generator_thermo = callWorkForce.do_unsrt_thermoHigherOrder(data, len(generator))
 				del callWorkForce
+				
 				Class_thermo_Curve_dict[species] = np.asarray(Class_thermo_curves)
 				Generator_dict[species] = generator_thermo	
 					
+			# PART 2: HIGH TEMPERATURE (LINEAR)
 			else:
 				generator = []
 				species_name = self.unsrt[species].species
-			
 				T = self.unsrt[species].common_temp
-				Theta = np.array([T/T,T,T**2,T**3,T**4])
-				#print(f"{species} high")
-				#print("\n"+str(species))
+				Theta = np.array([T/T, T, T**2, T**3, T**4])
 				a1_ = self.unsrt[species].a1_HL
 				a2_ = self.unsrt[species].a2_HL
-				#print("\n")
-				#print(a2_)
 				a2_dash = []
 				a3_dash = []
-				a3_ = self.unsrt[species].a3_L
+				a3_ = self.unsrt[species].a3_HL
 				Cp_T_mid = self.unsrt[species].Cp_T_mid_HL
+				
 				for i in range(len(a1_)):
 					a1 = a1_[i][0]
-					a2 = ((Cp_T_mid[i] - Theta.dot(self.unsrt[species].NominalParams))/abs(Theta.dot(np.asarray(np.dot(self.unsrt[species].cov,self.unsrt[species].zeta_max.x)).flatten())))
+					# Calculate a2_dash to anchor continuous Cp at T_mid
+					a2 = ((Cp_T_mid[i] - Theta.dot(self.unsrt[species].NominalParams)) / abs(Theta.dot(np.asarray(np.dot(self.unsrt[species].cov, self.unsrt[species].zeta_max.x)).flatten())))
 					a2_dash.append(np.array([a2]))
-					a3 = np.random.uniform(a2,1,(1,1))[0]
+					a3 = np.random.uniform(a2, 1, (1, 1))[0]
 					a3_dash.append(a3)
+					generator.append([[a1], [a2], a3])
 					
-					generator.append([[a1],[a2],a3])
 				self.unsrt[species].a2_HL = a2_dash
 				self.unsrt[species].a3_HL = a3_dash
-			#print(generator)
-			generator = np.asarray(generator,dtype="object")
-			#print(len(generator))
-			data = self.unsrt[species].data
-			chunk_size = 3000
-			params = [generator[i:i+chunk_size] for i in range(0, len(generator), chunk_size)]
-			Class_thermo_curves = []
-			generator_thermo = []
-			#for set_ in tqdm(params,desc="Set. progress"):
+
+				generator = np.asarray(generator, dtype="object")
+				data = self.unsrt[species].data
+				data["generators_thermo"] = generator
 				
-			data["generators_thermo"] = generator
-			callWorkForce = Worker(self.allowed_count)	
-			Class_thermo_curves_,f_c,generator_thermo_ = callWorkForce.do_unsrt_thermoLinear(data,len(generator))
-			Class_thermo_curves.extend(Class_thermo_curves_)
-			generator_thermo.extend(generator_thermo_)
-			del callWorkForce#,generator_thermo_,Class_thermo_curves_
-			Class_thermo_Curve_dict[species] = np.asarray(Class_thermo_curves)
-			Generator_dict[species] = generator_thermo
-		return Class_thermo_Curve_dict,Generator_dict
+				callWorkForce = Worker(self.allowed_count)	
+				# Pass 2: High-T gets Linear
+				Class_thermo_curves_, f_c, generator_thermo_ = callWorkForce.do_unsrt_thermoLinear(data, len(generator))
+				del callWorkForce
+				
+				Class_thermo_Curve_dict[species] = np.asarray(Class_thermo_curves_)
+				Generator_dict[species] = generator_thermo_
+				
+		return Class_thermo_Curve_dict, Generator_dict
 							
 	
 	def get_thermo_higher_order_curves(self , n_a):  ###  this creats Higher_Order cp curves 
@@ -944,7 +941,7 @@ class DesignMatrix(object):
 			design_matrix[i, i*vector_size:(i+1)*vector_size] = new_zeta[i]
 			
 		return np.asarray(design_matrix)
-	
+	'''
 	def get_thermo_samples(self):
 		print("\nStarting to generate design matrix!!\n")
 		if self.design == 'A-facto': 
@@ -963,10 +960,10 @@ class DesignMatrix(object):
 				n_H = int(UNSHUFFLED_DM*0.1)  			# trial-3  0.0667 0.0667 0.0667 0.1333 0.1333 0.1333 0.1333 0.1333 0.1333	 # taguchi trial 2
 				n_CL=int(UNSHUFFLED_DM*0.1) 	#		#trial-4    0.1 0.2 .1 .1 .1 .1 .1 .1 .1 .1
 				n_CH=int(UNSHUFFLED_DM*0.1)		 	# TRIAL-5 .2 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1
-				n_LC=int(UNSHUFFLED_DM*0.1)		# trial6 - .2 .2 .1 .1 .1 .1 .1 .05 .05 (best case)
-				n_LH=int(UNSHUFFLED_DM*0.1)		
-				n_HC=int(UNSHUFFLED_DM*0.05)	
-				n_HL=int(UNSHUFFLED_DM*0.05)		
+				n_LC=int(UNSHUFFLED_DM*0.05)		# trial6 - .2 .2 .1 .1 .1 .1 .1 .05 .05 (best case)
+				n_LH=int(UNSHUFFLED_DM*0.05)		
+				n_HC=int(UNSHUFFLED_DM*0.1)	
+				n_HL=int(UNSHUFFLED_DM*0.1)		
 			else:
 				n_C = 50
 				n_L = 50
@@ -1251,6 +1248,316 @@ class DesignMatrix(object):
 			return np.asarray(design_matrix) 
 			
 			
+
+
+	'''
+	
+	
+
+	def get_thermo_samples(self):
+		print("\nStarting to generate design matrix!!\n")
+		if self.design == 'A-facto': 
+			#self.sim = 1 + 2* self.n+self.n*(self.n-1)/2
+			design_matrix = list(2* np.random.random_sample((self.sim,self.n)) - 1)
+			design_matrix.extend(list(np.eye(self.n)))
+			return np.asarray(design_matrix)
+		elif self.design == "Tcube":
+			tic = time.time()
+			design_matrix = []
+			UNSHUFFLED_DM = int(self.sim*0.2) 
+			print("Unshuflled Dm", UNSHUFFLED_DM)
+			if int(self.sim) >= 500:            			
+				n_C = int(UNSHUFFLED_DM*0.2)	# 	trail-0  .4 , .3, .3   			# trial-1  .1 .1 .2 .1 .1 .1 .1 .1 .1	
+				n_L = int(UNSHUFFLED_DM*0.2)	 		#trial-2    .1111 .1111 .1111 .1111 .1111 .1111 .1111 .1111 .1111    # taguchi trial 1
+				n_H = int(UNSHUFFLED_DM*0.1)  			# trial-3  0.0667 0.0667 0.0667 0.1333 0.1333 0.1333 0.1333 0.1333 0.1333	 # taguchi trial 2
+				n_CL=int(UNSHUFFLED_DM*0.1) 	#		#trial-4    0.1 0.2 .1 .1 .1 .1 .1 .1 .1 .1
+				n_CH=int(UNSHUFFLED_DM*0.1)		 	# TRIAL-5 .2 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1
+				n_LC=int(UNSHUFFLED_DM*0.05)		# trial6 - .2 .2 .1 .1 .1 .1 .1 .05 .05 (best case)
+				n_LH=int(UNSHUFFLED_DM*0.05)		
+				n_HC=int(UNSHUFFLED_DM*0.1)	
+				n_HL=int(UNSHUFFLED_DM*0.1)		
+			else:
+				n_C = 25
+				n_L = 25
+				n_H = 25
+				n_CL= 25
+				n_CH= 25           
+				n_LC= 25
+				n_LH= 25
+				n_HC= 25
+				n_HL= 25
+				#UNSHUFFLED_DM = 5
+				#SHUFFLED_DM = 4*UNSHUFFLED_DM
+				#self.sim =  UNSHUFFLED_DM + SHUFFLED_DM
+			UNSHUFFLED_DM = n_C+ n_L + n_H + n_CL + n_CH + n_LC + n_LH + n_HC + n_HL 
+			SHUFFLED_DM = 4*UNSHUFFLED_DM
+			self.sim =  UNSHUFFLED_DM + SHUFFLED_DM
+			print(self.sim,n_C,n_L,n_H,SHUFFLED_DM)
+			
+			
+			if "thermo_ConstantSamples.pkl" not in os.listdir():
+				curves_dict_C, generator_C = self.get_thermo_ConstantCurves(n_C)# Returns 100 class-A Arrhenius samples
+				with open('thermo_ConstantSamples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_C, file_)
+				print("\nThermo constant curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_ConstantSamples.pkl', 'rb') as file_:
+					curves_dict_C = pickle.load(file_)
+				print("\nThermo constant curves generated")
+					
+			
+			if "thermo_LinearSamples.pkl" not in os.listdir():
+				curves_dict_L, generator_L = self.get_thermo_LinearCurves(n_L)# Returns 100 class-A Arrhenius samples
+				with open('thermo_LinearSamples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_L, file_)
+				print("\nThermo linear curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_LinearSamples.pkl', 'rb') as file_:
+					curves_dict_L = pickle.load(file_)
+				print("\nThermo linear curves generated")
+					
+			
+			if "thermo_HigherOrderSamples.pkl" not in os.listdir():
+				curves_dict_H, generator_H = self.get_thermo_higher_order_curves(n_H)# Returns 100 class-A Arrhenius samples
+				with open('thermo_HigherOrderSamples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_H, file_)
+				print("\nThermo Higher curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_HigherOrderSamples.pkl', 'rb') as file_:
+					curves_dict_H = pickle.load(file_)
+				print("\nThermo Higher curves generated")
+					
+						
+			if "thermo_Hybrid_Constant_Linear_Samples.pkl" not in os.listdir():			
+				curves_dict_CL, generator_CL = self.get_thermo_Hybrid_Constant_LinearCurves(n_CL)# Returns 100 class-A Arrhenius samples
+				with open('thermo_Hybrid_Constant_Linear_Samples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_CL, file_)
+				print("\nThermo hybrid C_L curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_Hybrid_Constant_Linear_Samples.pkl', 'rb') as file_:
+					curves_dict_CL = pickle.load(file_)
+				print("\nThermo hybrid C_L curves generated")
+				
+						
+			if "thermo_Hybrid_Constant_HigherOrder_Samples.pkl" not in os.listdir():
+				curves_dict_CH, generator_CH = self.get_thermo_Hybrid_Constant_HigherOrderCurves(n_CH)
+				#print(curves_dict_CH)
+				with open('thermo_Hybrid_Constant_HigherOrder_Samples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_CH, file_)
+				print("\nThermo C_H curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_Hybrid_Constant_HigherOrder_Samples.pkl', 'rb') as file_:
+					curves_dict_CH = pickle.load(file_)
+				print("\nThermo C_H curves generated")
+					
+					
+			if "thermo_Hybrid_Linear_Constant_Samples.pkl" not in os.listdir():
+				curves_dict_LC, generator_LC = self.get_thermo_Hybrid_Linear_ConstantCurves(n_LC)
+				with open('thermo_Hybrid_Linear_Constant_Samples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_LC, file_)
+				print("\nThermo L_C curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_Hybrid_Linear_Constant_Samples.pkl', 'rb') as file_:
+					curves_dict_LC = pickle.load(file_)
+				print("\nThermo L_C curves generated")
+
+									
+			if "thermo_Hybrid_Linear_HigherOrder_Samples.pkl" not in os.listdir():
+				curves_dict_LH, generator_LH = self.get_thermo_Hybrid_Linear_HigherOrderCurves(n_LH)
+				with open('thermo_Hybrid_Linear_HigherOrder_Samples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_LH, file_)
+				print("\nThermo hybrid L_H curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_Hybrid_Linear_HigherOrder_Samples.pkl', 'rb') as file_:
+					curves_dict_LH = pickle.load(file_)
+				print("\nThermo hybrid L_H curves generated")
+				
+								
+			if "thermo_Hybrid_HigherOrder_Constant_Samples.pkl" not in os.listdir():
+				curves_dict_HC, generator_HC = self.get_thermo_Hybrid_HigherOrder_ConstantCurves(n_HC)
+				with open('thermo_Hybrid_HigherOrder_Constant_Samples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_HC, file_)
+				print("\nThermo hybrid H_C curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_Hybrid_HigherOrder_Constant_Samples.pkl', 'rb') as file_:
+					curves_dict_HC = pickle.load(file_)
+				print("\nThermo hybrid H_C curves generated")	
+					
+							
+			if "thermo_Hybrid_HigherOrder_Linear_Samples.pkl" not in os.listdir():
+				curves_dict_HL, generator_HL = self.get_thermo_Hybrid_HigherOrder_LinearCurves(n_HL)
+				with open('thermo_Hybrid_HigherOrder_Linear_Samples.pkl', 'wb') as file_:
+					pickle.dump(curves_dict_HL, file_)
+				print("\nThermo hybrid H_L curves generated")
+			else:
+				# Load the object from the file
+				with open('thermo_Hybrid_HigherOrder_Linear_Samples.pkl', 'rb') as file_:
+					curves_dict_HL = pickle.load(file_)
+				print("\nThermo hybrid H_L curves generated")		
+			
+			
+
+
+			
+			V_ = {}
+			pairings = []
+
+			for species in tqdm(self.unsrt, desc="Populating V_"):
+				species_name = self.unsrt[species].species  # Name of the species
+				if not self.unsrt[species].grouped:  # Only process ungrouped species
+					pair = []
+
+					# Find all species with the same name
+					for spec in self.unsrt:
+						if self.unsrt[spec].species == species_name:
+							self.unsrt[spec].grouped = True  # Mark species as grouped
+							pair.append(spec)
+					#print(pair)
+					# Ensure two entries exist for low and high T polynomials
+					if len(pair) != 2:
+						print(f"Warning: Incomplete pairing for species {species_name}")
+						continue
+					# Extract curves for the two paired species
+					#print(curves_dict_C[pair[0]])
+					list_c1 = curves_dict_C[pair[0]]  # First pair (NASA coefficients at condition C)
+					list_c2 = curves_dict_C[pair[1]]  # Second pair
+					#print(species,list_c1[0],list_c2[0])
+					#print(len(list_c1))
+					list_l1 = curves_dict_L[pair[0]]  
+					list_l2 = curves_dict_L[pair[1]]  
+					#print(species,list_l1[0],list_l2[0])
+					list_h1 = curves_dict_H[pair[0]]  
+					list_h2 = curves_dict_H[pair[1]]  
+					#print(species,list_h1[0],list_h2[0])
+					list_CL1 = curves_dict_CL[pair[0]]  
+					list_CL2 = curves_dict_CL[pair[1]]  
+					#print(species,list_CL1[0],list_CL2[0])
+					list_CH1 = curves_dict_CH[pair[0]]  
+					list_CH2 = curves_dict_CH[pair[1]]  
+					#print(species,list_CH1[0],list_CH2[0])
+					list_LC1 = curves_dict_LC[pair[0]]  
+					list_LC2 = curves_dict_LC[pair[1]] 
+					#print(species,list_LC1[0],list_LC2[0])
+					list_LH1 = curves_dict_LH[pair[0]]  
+					list_LH2 = curves_dict_LH[pair[1]]  
+					#print(species,list_LH1[0],list_LH2[0])
+					list_HC1 = curves_dict_HC[pair[0]]  
+					list_HC2 = curves_dict_HC[pair[1]]  
+					#print(species,list_HC1[0])#,list_HC2[0])
+					list_HL1 = curves_dict_HL[pair[0]]  
+					list_HL2 = curves_dict_HL[pair[1]]  
+					#print(species,list_HL1[0],list_HL2[0])
+					#raise AssertionError("Stop")
+					# Combine low-temperature (L), high-temperature (H), and other coefficients (C)
+					result = []
+					result.extend([np.asarray([np.asarray(c1).flatten(),np.asarray(c2).flatten()]).flatten() for c1, c2 in zip(list_c1, list_c2)])
+					result.extend([np.asarray([np.asarray(l1).flatten(),np.asarray(l2).flatten()]).flatten() for l1, l2 in zip(list_l1, list_l2)])
+					result.extend([np.asarray([np.asarray(h1).flatten(),np.asarray(h2).flatten()]).flatten() for h1, h2 in zip(list_h1, list_h2)])
+					result.extend([np.asarray([np.asarray(CL1).flatten(),np.asarray(CL2).flatten()]).flatten() for CL1, CL2 in zip(list_CL1, list_CL2)])
+					result.extend([np.asarray([np.asarray(CH1).flatten(),np.asarray(CH2).flatten()]).flatten() for CH1, CH2 in zip(list_CH1, list_CH2)])
+					result.extend([np.asarray([np.asarray(LC1).flatten(),np.asarray(LC2).flatten()]).flatten() for LC1, LC2 in zip(list_LC1, list_LC2)])
+					result.extend([np.asarray([np.asarray(LH1).flatten(),np.asarray(LH2).flatten()]).flatten() for LH1, LH2 in zip(list_LH1, list_LH2)])
+					result.extend([np.asarray([np.asarray(HC1).flatten(),np.asarray(HC2).flatten()]).flatten() for HC1, HC2 in zip(list_HC1, list_HC2)])
+					result.extend([np.asarray([np.asarray(HL1).flatten(),np.asarray(HL2).flatten()]).flatten() for HL1, HL2 in zip(list_HL1, list_HL2)])
+									
+					#print(result[0])
+					# Store the result in V_
+					V_[species_name] = result  # Use species name as key
+					pairings.append(species_name)  # Track paired species
+
+				else:
+					continue
+			
+			V_s = {}#Doing random shuffling
+			
+			V_copy = copy.deepcopy(V_)
+			
+			for species in tqdm(pairings, desc="Doing random shuffling"):
+				column = []
+				# Number of shuffles
+				num_shuffles = SHUFFLED_DM
+				# Get the values to shuffle
+				values = V_copy[species]
+				#print(len(values))
+				# Repeat the shuffle process
+				for i in range(4):
+					np.random.shuffle(values)
+					column.extend(values.copy())
+
+				# Flatten the list of arrays
+				#print(len(column))
+				#column = np.concatenate(column)
+				#print(column[len(list_c1)])
+				V_s[species] = column
+			
+			SHUFFLED_DM = 4* UNSHUFFLED_DM
+			
+			# STEP: Check that all species in pairings have sufficient samples
+			min_entries_per_species = {}
+			for species in pairings:
+				actual_len = len(V_[species])
+				if actual_len < UNSHUFFLED_DM:
+					print(f"⚠️ Warning: Species '{species}' has only {actual_len} samples. Adjusting UNSHUFFLED_DM.")
+				min_entries_per_species[species] = actual_len
+
+			# Get the new safe UNSHUFFLED_DM
+			safe_DM = min(min_entries_per_species.values())
+			if safe_DM < UNSHUFFLED_DM:
+				print(f"\n✅ Adjusting UNSHUFFLED_DM from {UNSHUFFLED_DM} to {safe_DM} to ensure consistency.\n")
+				UNSHUFFLED_DM = safe_DM
+				SHUFFLED_DM = 4 * UNSHUFFLED_DM
+				self.sim = UNSHUFFLED_DM + SHUFFLED_DM  # Adjust sim value too
+
+			print('✅ Final UNSHUFFLED_DM:', UNSHUFFLED_DM)
+			print('✅ Final SHUFFLED_DM  :', SHUFFLED_DM)
+
+			# STEP: Now safely construct the design matrix
+			for i in range(UNSHUFFLED_DM):
+				row = []
+				for species in pairings:
+					try:
+						row.extend(V_[species][i])
+					except IndexError:
+						raise IndexError(f"❌ Index {i} out of range for species '{species}' with only {len(V_[species])} samples")
+				design_matrix.append(row)
+			
+			#RANDOM SHUFFLING
+			for i in range(SHUFFLED_DM):
+				row = []
+				for species in pairings:
+					row.extend(V_s[species][i])
+				design_matrix.append(row)
+			
+			
+			tok = time.time()
+			print("Time taken to construct Design Matrix: {}".format(tok - tic))
+			
+			design_matrix = np.asarray(design_matrix)
+			s = ""
+			for row in design_matrix:
+				
+				row_vals = []
+				for element in row:
+				    if isinstance(element, (np.ndarray, list)):
+				        row_vals.extend(np.ravel(element))
+				    else:
+				        row_vals.append(element)
+				s += ",".join(f"{float(val):.16e}" for val in row_vals) + "\n"
+				
+
+			with FileLock("DesignMatrix.csv.lock"):
+			
+				with open('DesignMatrix.csv', 'w') as ff:
+					ff.write(s)
+			return np.asarray(design_matrix)
 
 
 
@@ -1757,5 +2064,4 @@ class Worker():
 		self.pool.join()
 		self.pool.terminate()
 		return self.parallized_zeta,self.generator
-
 
