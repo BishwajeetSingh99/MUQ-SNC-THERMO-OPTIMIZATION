@@ -44,7 +44,7 @@ import Uncertainty as uncertainty
 from sample_generator  import sample_plot_all_species as sample_plot
 from MechanismParser import Parser
 from MechManipulator_v3 import Manipulator
-import ga_optimizer_module_V2 as ga_mod
+import ga_optimizer_module_V as ga_mod
 ### KEY WORDS #######
 optType = "optimization_type"
 targets = "targets"
