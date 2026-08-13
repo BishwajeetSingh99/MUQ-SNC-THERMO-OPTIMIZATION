@@ -1,0 +1,43 @@
+# Running the MUQ-SNC Repository
+
+Follow the steps below to configure and run the MUQ-SNC optimization framework.
+
+## Step 1: Update file paths
+
+Open `target.opt` and modify all mechanism, target, and output paths according to your local system under the tag (Locations:)
+
+## Step 2: Set the number of targets
+
+In `target.opt`, specify the total number of target cases included in the target file.
+
+## Step 3: Set the number of threads
+
+Specify the number of CPU threads to be used for parallel execution in `target.opt`.
+
+## Step 4: Keep other settings unchanged
+
+All remaining parameters in `target.opt` can be left at their default values unless a specific modification is required.
+
+## Step 5: Thermodynamic uncertainty file
+
+The uncertainty information for thermodynamic properties is provided through the XML uncertainty files located in the repository. These files contain the uncertainty bounds for the species NASA polynomial parameters.
+
+## Step 6: Target file format
+
+Store all experimental targets in a single file using the `.target` format.
+
+Example:
+
+```text
+FFCM_TEST_DATA.target
+```
+
+## Step 7: Run the optimization
+
+From the repository root directory, execute:
+
+```bash
+python3 run_script.py target.opt
+```
+
+This command reads the settings from `target.opt` and starts the MUQ-SNC optimization workflow.
