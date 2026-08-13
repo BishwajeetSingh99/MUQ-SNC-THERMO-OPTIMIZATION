@@ -583,4 +583,3 @@ class SM(object):
 			
 				os.chdir('..')
 		return sim_location
-
