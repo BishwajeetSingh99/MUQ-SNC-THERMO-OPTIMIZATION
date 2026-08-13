@@ -83,4 +83,3 @@ def getRxnDetails(mechanism,rxn_list):
 		new_rxn_data["index"] = index_
 		rxn_dict[rxn] = new_rxn_data
 	return rxn_dict
-
