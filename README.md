@@ -30,13 +30,13 @@ Step 3: Prepare input files
 Step 4: Run simulations
 
 Optimization:
-python3.9 THERMO_PARAMETER_OPTIMIZATION/run_script.py [target_file]
+python3 THERMO_PARAMETER_OPTIMIZATION/run_script.py [target_file]
 
 Nominal simulations:
-python3.9 NOMINAL_SIMULATIONS/run_nominal_sim.py [target_file]
+python3 NOMINAL_SIMULATIONS/run_nominal_sim.py [target_file]
 
 Sensitivity analysis:
-python3.9 SENSITIVITY_ANALYSIS_THERMO/sens.py [target_file]
+python3 SENSITIVITY_ANALYSIS_THERMO/sens.py [target_file]
 
 ## Repository Structure
 
