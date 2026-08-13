@@ -276,11 +276,10 @@ def worker_evaluate(zeta_vector, species_info, prs_folder, valid_cases, case_to_
             eps = 1e-12
             tol_cp, tol_hs = 0.20, 0.20
             Cp_ok = np.all(np.abs(Cp_new - Cp_nom) <= tol_cp * np.maximum(np.abs(Cp_nom), eps))
-            H_ok  = np.all(np.abs(H_new - H_nom) <= tol_hs * np.maximum(np.abs(H_nom), eps))
-            S_ok  = np.all(np.abs(S_new - S_nom) <= tol_hs * np.maximum(np.abs(S_nom), eps))
+            H_ok  = np.all(np.abs(H_new - H_nom) <= tol_hs * np.maximum(np.abs(H_nom), eps))		
+            S_ok  = np.all(np.abs(S_new - S_nom) <= tol_hs * np.maximum(np.abs(S_nom), eps))		
 
-            dCp = np.diff(Cp_new)
-            Cp_mon = np.all(dCp >= -0.1) if sp_name == "OH" else np.all(dCp >= -0.001)
+            Cp_mon = np.all(np.diff(Cp_new) >= np.minimum(np.diff(Cp_nom), 0.0) - 1e-4)
             H_mon, S_mon = np.all(np.diff(H_new) >= 0), np.all(np.diff(S_new) >= 0)
 
             if Cp_ok and H_ok and S_ok and Cp_mon and H_mon and S_mon:
@@ -330,9 +329,14 @@ def worker_evaluate(zeta_vector, species_info, prs_folder, valid_cases, case_to_
     if baseline_group_rms is None:
         return 0.0, coeff_list, group_errors, zeta_vector
 
+
     f = group_errors / baseline_group_rms
-    p = 4
-    obj = (np.sum(f**p))**(1.0/p)
+    M = len(f)
+    omega = np.ones(M) / M   # equal weights, sum(omega)=1
+
+    obj = (np.sum(omega * (f**4)))**(1.0/4.0)
+
+
 
     if np.all(group_errors < baseline_group_rms):
         obj = obj * 0.90  
