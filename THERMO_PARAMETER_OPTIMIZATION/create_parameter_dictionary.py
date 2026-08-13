@@ -92,4 +92,3 @@ def dictionary_creator(unsrt_data,flag, mechanism, carbon_number, rxn_list, spec
                 pickle.dump(species_dict, file_)
         
         return species_dict, sellected_species, selected_reactions
-
