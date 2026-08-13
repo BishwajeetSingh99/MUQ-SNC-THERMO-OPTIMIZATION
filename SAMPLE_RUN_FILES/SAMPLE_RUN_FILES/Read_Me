@@ -26,11 +26,7 @@ The uncertainty information for thermodynamic properties is provided through the
 
 Store all experimental targets in a single file using the `.target` format.
 
-Example:
 
-```text
-FFCM_TEST_DATA.target
-```
 
 ## Step 7: Run the optimization
 
