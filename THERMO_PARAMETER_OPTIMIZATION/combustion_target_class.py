@@ -551,4 +551,3 @@ class combustion_target():
 			self.xdata.append(X)	
 		#print(np.shape(self.xdata))
 		os.chdir(home_dir)			
-
