@@ -66,7 +66,7 @@ def run_sim(index,case,input_,caseID,path,total):
 		#print(len(line))
 		#print(line)
 		if len(line) == 2:
-			eta = np.log(float(line[1])*10)
+			eta = np.log(float(line[1]))
 			ETA = float(line[1])	#us/micro seconds
 		else:
 			eta = np.log(100*10000)
@@ -368,7 +368,7 @@ def extract_output(case,fuel,path,index,input_=None,caseID=None):
 				#print(len(line))
 				#print(line)
 				if len(line) == 2:
-					eta = np.log(float(line[1])*10)
+					eta = np.log(float(line[1]))
 					ETA = float(line[1])	#us/micro seconds
 				else:
 					eta = np.log(100*10000)
@@ -384,7 +384,7 @@ def extract_output(case,fuel,path,index,input_=None,caseID=None):
 				#print(len(line))
 				#print(line)
 				if len(line) == 2:
-					eta = np.log(float(line[1])*10)
+					eta = np.log(float(line[1]))
 					ETA = float(line[1]) 	#us/micro seconds
 				else:
 					eta = np.log(100*10000)
@@ -405,7 +405,7 @@ def extract_output(case,fuel,path,index,input_=None,caseID=None):
 				#print(len(line))
 				#print(line)
 				if len(line) == 2:
-					eta = np.log(float(line[1])*10)
+					eta = np.log(float(line[1]))
 					ETA = float(line[1])	#us/micro seconds
 				else:
 					eta = np.log(100*10000)
@@ -429,7 +429,7 @@ def extract_output(case,fuel,path,index,input_=None,caseID=None):
 				#print(len(line))
 				#print(line)
 				if len(line) == 2:
-					eta = np.log(float(line[1])*10)
+					eta = np.log(float(line[1]))
 					ETA = float(line[1])	#us/micro seconds
 				else:
 					eta = np.log(100*10000)
@@ -472,7 +472,7 @@ def extract_output(case,fuel,path,index,input_=None,caseID=None):
 					#print(len(line))
 					#print(line)
 					if len(line) == 2:
-						eta = np.log(float(line[1])*10)
+						eta = np.log(float(line[1]))
 						ETA = float(line[1])	#us/micro seconds
 					else:
 						eta = np.log(100*10000)
