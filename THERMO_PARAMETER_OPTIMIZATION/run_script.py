@@ -44,7 +44,7 @@ import Uncertainty as uncertainty
 from sample_generator  import sample_plot_all_species as sample_plot
 from MechanismParser import Parser
 from MechManipulator_v3 import Manipulator
-import ga_optimizer_module as ga_mod
+import ga_optimizer_module_V2 as ga_mod
 ### KEY WORDS #######
 optType = "optimization_type"
 targets = "targets"
@@ -735,7 +735,7 @@ for case_idx in range(total_original_targets):
 print(f"📋 Total Input Cases: {total_original_targets}")
 print(f"❌ Identified {len(rejected_prs_cases)} failed PRS cases to exclude: {rejected_prs_cases}")
 
-exp_vals = np.array([np.log(float(t.observed) * 10) for t in target_list])
+exp_vals = np.array([np.log(float(t.observed)) for t in target_list])
 design_matrix_csv_file = os.path.join(original_directory, "DesignMatrix.csv")
 
 # ==============================================================================
