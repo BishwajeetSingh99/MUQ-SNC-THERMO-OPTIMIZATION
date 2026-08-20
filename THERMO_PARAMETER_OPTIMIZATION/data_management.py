@@ -346,7 +346,7 @@ def extract_output(case,fuel,path,index,input_=None,caseID=None):
 				#print(len(line))
 				#print(line)
 				if len(line) == 2:
-					eta = np.log(float(line[1])*10)	#us/micro seconds
+					eta = np.log(float(line[1]))#us/micro seconds
 					ETA = float(line[1])
 				else:
 					eta = np.log(100*10000)
